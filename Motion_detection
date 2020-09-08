@@ -12,24 +12,12 @@ from scipy import fftpack
 
 SAMPLE_NUMBER = 10000
 
-def cb(accelerometer, file_send, server_send):
-    data = accelerometer.acceleration
-    #print("interrupt %f %f %f" %data)
-    file_send.send(data)
-    server_send.send(data)
-
-def config_GPIO(channel, accelerometer, file_send, server_send):
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(channel, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.add_event_detect(channel, GPIO.FALLING, callback=lambda x: cb(accelerometer, file_send, server_send))
-
 def is_adxl345(accelerometer):
     return accelerometer._read_register_unpacked(0x00)&0xFF == 0xE5
 
 def config_adxl345(accelerometer, x_offset, y_offset, z_offset):
     accelerometer.data_rate = adafruit_adxl34x.DataRate.RATE_800_HZ
     accelerometer.range = adafruit_adxl34x.Range.RANGE_16_G
-    accelerometer.enable_motion_detection(threshold=2)
     accelerometer._write_register_byte(0x1E, x_offset)
     accelerometer._write_register_byte(0x1F, y_offset)
     accelerometer._write_register_byte(0x20, z_offset)
@@ -144,14 +132,13 @@ if __name__ == "__main__":
     if is_adxl345(accelerometer):
         config_adxl345(accelerometer, 0x0F, 0x02, 0x85) # X_OFFSET Y_OFFSET Z_OFFSET
 
-        channel = 4
-        config_GPIO(channel, accelerometer, file_send, server_send)
-
         try:
             while True:
-                accelerometer._read_clear_interrupt_source()
+                data = accelerometer.acceleration
+                #print("interrupt %f %f %f" %data)
+                file_send.send(data)
+                server_send.send(data)
                 time.sleep(0.001)
         except KeyboardInterrupt:
             #for i in arr:
     	    #    print(i)
-            GPIO.remove_event_detect(channel)
