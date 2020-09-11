@@ -9,6 +9,7 @@ import paho.mqtt.client as mqtt
 import json
 import numpy as np
 from scipy import fftpack
+import AWSIoTPythonSDK.MQTTLib as AWSIoTPyMQTT
 
 SAMPLE_NUMBER = 10000
 
@@ -43,19 +44,53 @@ def proc_file(receive):
                 file_num += 1
                 arr = []
 		
-
-def proc_server(receive):
+def thinsboard_init():
     THINGSBOARD_HOST = 'demo.thingsboard.io'
     ACCESS_TOKEN='J13IFXDuDR7KX9Yxh3Vt'
-    sensor_data = {'Freq1':0,'Freq2':0,'Freq3':0}
     client = mqtt.Client()
     client.username_pw_set(ACCESS_TOKEN)
     client.connect(THINGSBOARD_HOST, 1883, 60)
     client.loop_start()
+    return client
+    
+def thingsboard_send(client, x, y, z)
+    sensor_data = {'Freq1':0,'Freq2':0,'Freq3':0}
+    sensor_data["Freq1"] = x
+    sensor_data["Freq2"] = y
+    sensor_data["Freq3"] = z
+    print("--------------------")
+    print(x)
+    print(y)
+    print(z)
+    client.publish('v1/devices/me/telemetry', json.dumps(sensor_data), 1)
+    
+def aws_init():
+    # Define ENDPOINT, CLIENT_ID, PATH_TO_CERT, PATH_TO_KEY, PATH_TO_ROOT, MESSAGE, TOPIC, and RANGE
+    ENDPOINT = "customEndpointUrl"
+    CLIENT_ID = "testDevice"
+    PATH_TO_CERT = "certificates/a1b23cd45e-certificate.pem.crt"
+    PATH_TO_KEY = "certificates/a1b23cd45e-private.pem.key"
+    PATH_TO_ROOT = "certificates/root.pem"
+    MESSAGE = "Hello World"
+    TOPIC = "test/testing"
+    
+    myAWSIoTMQTTClient = AWSIoTPyMQTT.AWSIoTMQTTClient(CLIENT_ID)
+    myAWSIoTMQTTClient.configureEndpoint(ENDPOINT, 8883)
+    myAWSIoTMQTTClient.configureCredentials(PATH_TO_ROOT, PATH_TO_KEY, PATH_TO_CERT)
+    myAWSIoTMQTTClient.connect()
+    return myAWSIoTMQTTClient
+    
+def aws_send(client, count, x, y, z):
+    data = "{} [{}]".format(x, count)
+    message = {"message" : data}
+    myAWSIoTMQTTClient.publish(TOPIC, json.dumps(message), 1) 
+
+def process_data(client):
     arr_x = []
     arr_y = []
     arr_z = []
     i = 0
+    aws_count = 0
     vdc_x = 0
     vdc_y = 0
     vdc_z = 0
@@ -103,14 +138,9 @@ def proc_server(receive):
             z_max_1 = freqs_z[z_max_idx[0]] 
             z_max_2 = freqs_z[z_max_idx[1]] 
             z_max_3 = freqs_z[z_max_idx[2]] 
-            sensor_data["Freq1"] = x_max_1
-            sensor_data["Freq2"] = y_max_1
-            sensor_data["Freq3"] = z_max_1
-            print("--------------------")
-            print(x_max_1)
-            print(y_max_1)
-            print(z_max_1)
-            client.publish('v1/devices/me/telemetry', json.dumps(sensor_data), 1)
+            #thingsboard_send(client, x_max_1, y_max_1, z_max_1)
+	    aws_count += 1
+	    aws_send(client, aws_count, x_max_1, y_max_1, z_max_1)
             arr_x = []
             arr_y = []
             arr_z = []
@@ -118,6 +148,11 @@ def proc_server(receive):
             vdc_y = 0
             vdc_z = 0
             i = 0
+
+def proc_server(receive):
+    #client = thinsboard_init()
+    client = aws_init()
+    process_data(client)
 
 if __name__ == "__main__":
     file_proc, file_send = create_process(proc_file)
