@@ -85,7 +85,7 @@ def aws_send(client, count, x, y, z):
     message = {"message" : data}
     myAWSIoTMQTTClient.publish(TOPIC, json.dumps(message), 1) 
 
-def process_data(client):
+def process_data(client, receive):
     arr_x = []
     arr_y = []
     arr_z = []
@@ -152,7 +152,7 @@ def process_data(client):
 def proc_server(receive):
     #client = thinsboard_init()
     client = aws_init()
-    process_data(client)
+    process_data(client, receive)
 
 if __name__ == "__main__":
     file_proc, file_send = create_process(proc_file)
